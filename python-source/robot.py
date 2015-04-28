@@ -78,9 +78,9 @@ def pickup_object():
 	return None
 
 
-def spin_right():
-	PWM.set_duty_cycle(right, 50)
-	PWM.set_duty_cycle(left, 50)
+def spin_right(duty):
+	PWM.set_duty_cycle(right, duty)
+	PWM.set_duty_cycle(left, duty)
 	PWM.set_frequency(right, 200)
 	PWM.set_frequency(left, 200)
 
@@ -90,9 +90,9 @@ def spin_right():
 	GPIO.output("P8_17", GPIO.HIGH)
 	return None
 
-def spin_left():
-	PWM.set_duty_cycle(right, 50)
-	PWM.set_duty_cycle(left, 50)
+def spin_left(duty):
+	PWM.set_duty_cycle(right, duty)
+	PWM.set_duty_cycle(left, duty)
 	PWM.set_frequency(right, 200)
 	PWM.set_frequency(left, 200)
 
@@ -101,6 +101,14 @@ def spin_left():
 	GPIO.output("P8_16", GPIO.HIGH)
 	GPIO.output("P8_17", GPIO.LOW)
 	return None
+
+def spinfortime(t, duty, left):
+        if left:
+            spin_left(duty)
+        else:
+            spin_right(duty)
+        time.sleep(t)
+        stop()
 
 def two():
 	PWM.set_duty_cycle(right, 50)
@@ -131,6 +139,11 @@ def backward():
 	GPIO.output("P8_17", GPIO.LOW)
 	return None
 
+def turn_right_degrees(angle):
+        dtime = -.000258*angle*angle + .01273*angle+2.74e-2 + .01753
+        spin_right(100)
+        time.sleep(dtime)
+        stop()
 
 def release_object():
 	PWM.start(arm, 92, 50, 1) # arm reaches highest point

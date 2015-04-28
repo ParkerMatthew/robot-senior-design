@@ -4,7 +4,7 @@ Created on Fri Apr 24 19:42:43 2015
 
 @author:
 """
-LOG = True
+LOG = False
 
 # <InstanceID> + log + <number>
 import os
@@ -73,6 +73,14 @@ def where_dat_ball(rgbimg):
 def rotate_to_find_ball():
     noop = 0
 
+def get_angle_from_com(com):
+    return np.rad2deg(np.arctan((com[1]-189.32)/(288.1-com[0])))
+
+def estimate_turn_time(angle):
+    angle = np.float32(np.abs(angle))
+    turn_time = -.000258*angle*angle + .01273*angle + .01753
+    return turn_time
+
 if LOG:
     file_list = os.listdir(DIRECTORY)
     instance = 0     
@@ -123,13 +131,38 @@ while True:
     # Do the appropriate action based on what phase we are in
     if phase == 'seek' and size == 0:
         t0 = time.time()
-#        robot.spin_left()
+        robot.spin_right(60)
         print('Did not Detect Ball. Spin: ' + str(time.time()-t0) + ' seconds.')
-        log += 'WHERE YOU AT BALL!??! TURNING LEFT\n'
-    else:
+        log += 'Did not find ball, turning right.\n'
+    
+    if phase == 'seek' and size != 0:
+        phase = 'turn'
         robot.stop()	    
-        log += 'GOT YOU MUTHA FUCKA! STOP!\n'
-        print('I see it. Not Moving')
+        log += 'Found Object, Centering.\n'
+        print('Found Object, Moving to Turn Phase')
+
+    if phase == 'turn':
+        if size == 0:
+            phase == 'seek'
+            s = 'Ball Lost, Seeking'
+            log += s
+            print(s)
+            continue
+
+        angle = get_angle_from_com(center_of_mass)
+        if angle > -15 and angle < 15:
+            phase = 'move'
+            s = 'Angle Good. Going to Move Phase'
+            print (s)
+            log += s
+           
+        else:
+            turn_left = angle<0
+            turn_time = np.float32(estimate_turn_time(angle))
+            print('Turning: ')
+            print('  Turn Angle:' + str(angle))
+            print('  Turn Time: ' + str(turn_time))
+            robot.spinfortime(turn_time,100,turn_left)
 
     # If log mode save log
     t0 = time.time()
