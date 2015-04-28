@@ -82,38 +82,54 @@ def arm_down():
     PWM.start(arm, 93.75, 50, 1)
     return None
 
+def arm_lowest():
+    PWM.start(arm, 94.1, 50, 1)
+    return None
+
 def claw_open():
-    PWM.start(claw, 88, 50, 1)
+    PWM.start(claw, 88.7, 50, 1) # above 88.7, the claw is slightly closed. 88.7 and below are all the same
+    return None
+    
+def claw_close():
+    PWM.start(claw, 96, 50, 1) # 96 is a little tighter than 95
+    return None
+    
+def claw_tightest():
+    PWM.start(claw, 99, 50, 1) # 96 is a little tighter than 95
     return None
 
 # Use this function to try to prevent the claw from getting too hot. 
-# Don't expect the claw to work for awhile after calling.
+# it is possible to hold an object while relaxed, but it can slip out while moving around.
 def claw_relax():
-    PWM.stop(claw)
+    # PWM.stop(claw) # After calling this function, the next claw_close or claw_open will take 45 seconds to start.
+    PWM.start(claw, 0, 50, 1)  # a PWM of 0 will allow it to cool down without making it lag.
     return None
-
-def claw_close():
-    PWM.start(claw, 97, 50, 1) # 97 is a little tighter than 95
-    return None
-
+    
+    
 def demo():
     # pickup
     arm_up()
     claw_open()
     time.sleep(1)
     arm_down()
-    time.sleep(1)
-    claw_close()
     time.sleep(2)
+    arm_lowest() # some objects are short
+    time.sleep(0.25)
+    claw_close()
+    time.sleep(1.5)
+    claw_tightest() # sometimes the claw won't close all the way
+    time.sleep(0.5)
     arm_up()
+    #claw_relax() # this might cause the object to slip, but it will cool down the claw motor.
     time.sleep(2)
     
     # release
     arm_down()
     time.sleep(0.5)
     claw_open()
-    time.sleep(0.75)
+    time.sleep(1.0)
     arm_up()
+    claw_relax()
     
     return None
     
