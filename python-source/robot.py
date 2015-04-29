@@ -4,7 +4,7 @@
 #    Ian Yanga - CPE
 #    Justin Swinney - CPE
 #    Ashim Ghimire - CPE
-#    Matthew Parker
+#    Matthew Parker - CPE
 #########################################
 
 #########################################
