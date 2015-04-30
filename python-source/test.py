@@ -1,6 +1,7 @@
 #tests
 
 #Don't forget to save to github:
+# file->save a copy as... -> name the file "C:\Users\schoo\Documents\GitHub\robot-senior-design\python-source\test.py"
 
 import cv
 import os
