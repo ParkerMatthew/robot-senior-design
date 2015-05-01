@@ -172,46 +172,8 @@ def dropoff():
     return None
     
 def demo():
-    # pickup
-    arm_up()
-    claw_open()
-    time.sleep(1)
-    arm_down()
-    time.sleep(2)
-    arm_lowest() # some objects are short
-    time.sleep(0.25)
-    claw_close()
-    time.sleep(1.5)
-    claw_tightest() # sometimes the claw won't close all the way
-    time.sleep(0.5)
-    arm_up()
-    #claw_relax() # this might cause the object to slip, but it will cool down the claw motor.
-    time.sleep(2)
-    
-    # release
-    arm_down()
-    time.sleep(0.5)
-    claw_open()
-    time.sleep(1.0)
-    arm_up()
-    claw_relax()
-    
-    return None
-    
-def pickup_object():
-    PWM.start(arm, 93.75, 50, 1) # arm reaches lowest point to pick up object
-    time.sleep(1.5)
-    PWM.start(claw, 95, 50, 1) # claw closes to pick up object
-    time.sleep(1.5)
-    PWM.start(arm, 92, 50, 1) # arm brings object up
-    time.sleep(1.5)
-    return None
-    
-def release_object():
-    PWM.start(arm, 92, 50, 1) # arm reaches highest point
-    time.sleep(1.5)
-    PWM.start(claw, 88, 50, 1) # claw releases object
-    time.sleep(1.5)
+    pickup()
+    release()
     return None
 
 def spin_right(duty):
@@ -246,22 +208,6 @@ def spinfortime(t, duty, left):
         time.sleep(t)
         stop()
 
-def two():
-    PWM.set_duty_cycle(right, 50)
-    PWM.set_duty_cycle(left, 50)
-    PWM.set_frequency(right, 200)
-    PWM.set_frequency(left, 200)
-
-    GPIO.output("P8_14", GPIO.LOW)
-    GPIO.output("P8_15", GPIO.HIGH)
-    GPIO.output("P8_16", GPIO.LOW)
-    GPIO.output("P8_17", GPIO.HIGH)
-    
-    time.sleep(.3)
-    GPIO.output("P8_15", GPIO.LOW)
-    GPIO.output("P8_14", GPIO.HIGH)
-    return None
-
 def backward():
     PWM.set_duty_cycle(right, 50)
     PWM.set_duty_cycle(left, 50)
@@ -280,25 +226,4 @@ def turn_right_degrees(angle):
         time.sleep(dtime)
         stop()
 
-
-
-
-#########################################
-
-# Main
-
-if __name__ == '__main__':
-
-    claw_in_motion()
-    forward()
-    time.sleep(1)    # move forward for 1 second
-    stop()
-    pickup_object()
-    backward()
-    time.sleep(1)    # move backward for 1 second
-    stop()
-    spin()
-    time.sleep(2)    # spin for 2 seconds 
-    stop()
-    release_object()
 
