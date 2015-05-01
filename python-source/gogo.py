@@ -1,8 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Created on Fri Apr 24 19:42:43 2015
-
-@author:
+save a copy as "C:\Users\schoo\Documents\GitHub\robot-senior-design\python-source\gogo.py"
 """
      
 LOG = False
@@ -141,7 +139,7 @@ while True:
     print('Image Capture: ' + str(time.time()-t0) + ' seconds.')    
 
     # Compute where the ball is
-    t0 = time.time()
+    # t0 = time.time() # not used
     center_of_mass, size, ratio, notorig = where_dat_ball(orig)
     print('CenterOfMass = '+ str(center_of_mass) + '\n')
     print('Size = ' + str(size) + '\n')
@@ -168,7 +166,7 @@ while True:
     if phase == 'turn':
         LOG = False
         if size == 0:
-            phase == 'seek'
+            phase = 'seek'
             #robot.spin_left(3)
             #robot.spin_right(55)
            # camera = camera_setup()
@@ -178,8 +176,15 @@ while True:
             continue
     
         angle = get_angle_from_com(center_of_mass)
+        print "angle = ",angle
+        
         if angle > -10 and angle < 10:
-           # phase = 'move'
+            #display image
+            #imgFile = cv2.imread('temp.png')
+            #cv2.imshow('angle less than 10', imgFile)
+            #cv2.waitKey(1)
+            #cv.destroyAllWindows()
+            # phase = 'move'
             robot.arm_init()
             s = 'Angle Good. Going to Move Phase'           
             print (s)
@@ -188,17 +193,22 @@ while True:
             #if center_of_mass[0] == 1:
              #  robot.timed_backward(.07,60)
             if center_of_mass[0]> 270:
-                  robot.pickup()
-                  robot.spinfortime(.6,25,True)
-                  robot.timed_forward(.3, 45)
-                  robot.dropoff()
-                  robot.arm_init()
+                robot.pickup()
+                robot.spinfortime(.6,25,True)
+                #robot.timed_forward(.3, 45)
+                robot.dropoff()
+                robot.arm_init()
+                #Done:
+                cv.destroyAllWindows()
+                exit()
             else:
-                    robot.timed_forward(.06,55)
-                    if center_of_mass[0] == 1:
-                       robot.timed_backward(.07,60)
-                    if center_of_mass[0]> 230 and center_of_mass[0] < 270:
-                       robot.timed_forward(.02,27)
+                robot.timed_forward(.06,65)
+                orig = get_picture() 
+                center_of_mass, size, ratio, notorig = where_dat_ball(orig)
+                if size == 0:
+                    robot.timed_backward(.07,65)
+                if center_of_mass[0]> 230 and center_of_mass[0] < 270:
+                    robot.timed_forward(.02,27)
                        
             
         else:
