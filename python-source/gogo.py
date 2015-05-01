@@ -38,6 +38,7 @@ def get_picture_self(capture):
     #read from the camera contuously, will have 2 second lag
     while True:
         ret,frame = camera.read()
+        if ret == False:
             print('retrying camera read')
             time.sleep(2)
         else:
@@ -106,7 +107,7 @@ def camera_setup():
     #capture = cv.CaptureFromCAM(
     cam.set(12, 0.5)
     return cam
-
+    
 def go():
     #This is the main function
     ballWasFound = False #Used to check if the last movement caused the ball to be lost
@@ -117,7 +118,24 @@ def go():
         log_init()
     #camera = camera_setup()
     
+    #Experimental variables:
+    old_x = -999 # not used when doing angle instead of X coordinate
+    old_y = -999
+    old_angle = -999
+    good_angle = False
+    
+    
+    
+    power_high = 0.80
+    power_low = 0.30
+    time_high = 0.80
+    time_low = 0.30
+    
+    power_percent = 0.65 # this doesn't change (yet)
+    time_percent = time_low # start small
+    
     while True:
+        
         counter += 1
         log = 'Second is ' + str(counter) + '\n'
         log += 'Start Phase: ' + str(phase) + '\n'
@@ -126,20 +144,60 @@ def go():
             orig = get_picture_self(camera) # read from camera for real time with 2 second lag
         else:
             orig = get_picture()  # get 1 picture for up to date images  
-        print('Image Capture: ' + str(time.time()-t0) + ' seconds.')    
         
         center_of_mass, size, ratio, notorig = where_dat_ball(orig)
+        angle = get_angle_from_com(center_of_mass)
+        
+        
+        if(old_x == -999 or old_y == -999 or old_angle == -999):
+            #this should only happen once
+            old_x = center_of_mass[1]
+            old_y = center_of_mass[0]
+            old_angle = angle
+        
+        #d meaning delta = change in the value
+        dx = old_x - center_of_mass[1]
+        dy = old_y - center_of_mass[0]
+        da = old_angle - angle
+        old_y = center_of_mass[0]
+        old_x = center_of_mass[1]
+        
+        #calculate changing amount of time/power
+        if( angle > 8 or angle < -8):
+            #we're trying to fix angle
+            if (good_angle == True):
+                time_percent = time_low # the angle is now bad, so reset the percents
+                good_angle = False
+            if (abs(da) < (abs(angle)-5)):
+                time_percent += 5
+            else:
+                time_percent -= 5
+        else:
+            #we're trying to fix distance
+            if(good_angle == False): 
+                time_percent = time_low #the angle is now good, so reset the percents
+                good_angle = True
+            if (abs(dy) < abs(center_of_mass[0] - 270)):
+                time_percent += 5
+            else:
+                time_percent -= 5
+        #percents should always be between 0 and 100, and within the HIGH and LOW constants set above
+        power_percent = min(max(power_percent, power_low), power_high)
+        time_percent = min(max(time_percent, time_low), time_high)
+        
+        print "dx = ", dx, ", dy = ", dy, ", da = ", da
+        print "pp = ", power_percent, ", tp = ", time_percent
         
         if(ballWasFound == True and size == 0):
             #we lost the ball after moving. Assume we moved too far forward.
             ballWasFound = False
-            robot.timed_backward(.07,65)
+            robot.timed_backward(.06,55)
             orig = get_picture()
             center_of_mass, size, ratio, notorig = where_dat_ball(orig)
         
         print('CenterOfMass = '+ str(center_of_mass) + '\n')
+        print "angle = ",angle
         print('Size = ' + str(size) + '\n')
-        print('Image Processing: ' + str(time.time()-t0) + ' seconds.')
         log += 'center_of_mass = %.2f , %.2f'%(center_of_mass[0],center_of_mass[1]) + '\n'
         log += 'size = ' + str(size) + '\n'
         log += 'ratio = ' + str(ratio) + '\n'
@@ -147,7 +205,7 @@ def go():
         
         
         # Do the appropriate action based on what phase we are in
-        if phase == 'seek' 
+        if phase == 'seek':
             if size == 0:
                 print('Did not Detect Ball. Spin: ' + str(time.time()-t0) + ' seconds.')
                 log += 'Did not find ball, turning right.\n'
@@ -170,9 +228,6 @@ def go():
                 continue
             
             ballWasFound = True
-            angle = get_angle_from_com(center_of_mass)
-            print "angle = ",angle
-            
             if angle > -8 and angle < 8:
                 
                 # phase = 'move'
@@ -181,9 +236,9 @@ def go():
                 print (s)
                 log += s
                 
-                if center_of_mass[0]> 270:
+                if center_of_mass[0] > 275:
                     robot.pickup()
-                    robot.spinfortime(.6,25,True)
+                    #robot.spinfortime(.6,25,True)
                     #robot.timed_forward(.3, 45)
                     robot.dropoff()
                     robot.arm_init()
@@ -191,11 +246,10 @@ def go():
                     cv.destroyAllWindows()
                     exit()
                 else:
-                    robot.timed_forward(.06,65)
+                    robot.timed_forward(time_percent*0.10,power_percent*100)
             else:
                 turn_left = angle<0
                 turn_time = np.float32(estimate_turn_time(angle))
-                turn_time = turn_time
                 print('Turning: ')
                 print('  Turn Angle:' + str(angle))
                 print('  Turn Time: ' + str(turn_time))
