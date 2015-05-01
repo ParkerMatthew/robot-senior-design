@@ -3,8 +3,8 @@
 #    Autonomous Object Finding Robot
 #    Ian Yanga - CPE
 #    Justin Swinney - CPE
-#    Ashim Ghimire - CPE
-#    Matthew Parker - CPE
+#    Ashim Ghimire
+#    Matthew Parker
 #########################################
 
 #########################################
@@ -58,6 +58,40 @@ def forward():
     GPIO.output("P8_17", GPIO.HIGH)
     return None
 
+def timed_forward(t,duty):
+    PWM.set_duty_cycle(right, duty)
+    PWM.set_duty_cycle(left, duty)
+    PWM.set_frequency(right, 75)
+    PWM.set_frequency(left, 75)
+
+    GPIO.output("P8_14", GPIO.LOW)
+    GPIO.output("P8_15", GPIO.HIGH)
+    GPIO.output("P8_16", GPIO.LOW)
+    GPIO.output("P8_17", GPIO.HIGH)
+    
+    time.sleep(t)
+    
+    GPIO.output("P8_15", GPIO.LOW)
+    GPIO.output("P8_17", GPIO.LOW)
+    return None
+
+def timed_backward(t,duty):
+    PWM.set_duty_cycle(right, duty)
+    PWM.set_duty_cycle(left, duty)
+    PWM.set_frequency(right, 75)
+    PWM.set_frequency(left, 75)
+
+    GPIO.output("P8_14", GPIO.HIGH)
+    GPIO.output("P8_15", GPIO.LOW)
+    GPIO.output("P8_16", GPIO.HIGH)
+    GPIO.output("P8_17", GPIO.LOW)
+    
+    time.sleep(t)
+    
+    GPIO.output("P8_14", GPIO.LOW)
+    GPIO.output("P8_16", GPIO.LOW)
+    return None
+
 #Stop the DC motors
 def stop():
     GPIO.output("P8_14", GPIO.LOW)
@@ -78,6 +112,10 @@ def arm_up():
     PWM.start(arm, 92, 50, 1) # not as high as it can go
     return None
 
+def arm_init():
+    PWM.start(arm, 88, 50, 1) # not as high as it can go
+    return None
+    
 def arm_down():
     PWM.start(arm, 93.75, 50, 1)
     return None
@@ -105,6 +143,33 @@ def claw_relax():
     PWM.start(claw, 0, 50, 1)  # a PWM of 0 will allow it to cool down without making it lag.
     return None
     
+def pickup():
+    # pickup
+    arm_up()
+    claw_open()
+    time.sleep(1)
+    arm_down()
+    time.sleep(2)
+    arm_lowest() # some objects are short
+    time.sleep(0.25)
+    claw_close()
+    time.sleep(1.5)
+    claw_tightest() # sometimes the claw won't close all the way
+    time.sleep(0.5)
+    arm_up()
+    #claw_relax() # this might cause the object to slip, but it will cool down the claw motor.
+    time.sleep(2)
+    return None
+    
+def dropoff():
+    # release
+    arm_down()
+    time.sleep(0.5)
+    claw_open()
+    time.sleep(1.0)
+    arm_up()
+    claw_relax()
+    return None
     
 def demo():
     # pickup
