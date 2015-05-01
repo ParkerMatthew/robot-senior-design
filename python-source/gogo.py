@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
 """
-save a copy as "C:\Users\schoo\Documents\GitHub\robot-senior-design\python-source\gogo.py"
+save a copy as C:\Users\schoo\Documents\GitHub\robot-senior-design\python-source\gogo.py
 """
      
 LOG = False
+ballWasFound = False #Used to check if the last movement caused the ball to be lost
 
 # <InstanceID> + log + <number>
 import os
@@ -133,14 +134,22 @@ while True:
     t0 = time.time()
     #if phase == 'seek':
     if False:
-        orig = get_picture_self(camera) 
+        orig = get_picture_self(camera) # read from camera for real time with 2 second lag
     else:
-        orig = get_picture()    
+        orig = get_picture()  # get 1 picture for up to date images  
     print('Image Capture: ' + str(time.time()-t0) + ' seconds.')    
 
     # Compute where the ball is
     # t0 = time.time() # not used
     center_of_mass, size, ratio, notorig = where_dat_ball(orig)
+    if(ballWasFound == True and size == 0):
+        #moved too far forward
+        ballWasFound = False
+        robot.timed_backward(.07,65)
+        orig = get_picture()
+        center_of_mass, size, ratio, notorig = where_dat_ball(orig)
+        
+    
     print('CenterOfMass = '+ str(center_of_mass) + '\n')
     print('Size = ' + str(size) + '\n')
     print('Image Processing: ' + str(time.time()-t0) + ' seconds.')
@@ -166,6 +175,7 @@ while True:
     if phase == 'turn':
         LOG = False
         if size == 0:
+            ballWasFound = False
             phase = 'seek'
             #robot.spin_left(3)
             #robot.spin_right(55)
@@ -174,7 +184,7 @@ while True:
             log += s
             print(s)
             continue
-    
+        ballWasFound = True
         angle = get_angle_from_com(center_of_mass)
         print "angle = ",angle
         
@@ -203,14 +213,6 @@ while True:
                 exit()
             else:
                 robot.timed_forward(.06,65)
-                orig = get_picture() 
-                center_of_mass, size, ratio, notorig = where_dat_ball(orig)
-                if size == 0:
-                    robot.timed_backward(.07,65)
-                if center_of_mass[0]> 230 and center_of_mass[0] < 270:
-                    robot.timed_forward(.02,27)
-                       
-            
         else:
             turn_left = angle<0
             turn_time = np.float32(estimate_turn_time(angle))
