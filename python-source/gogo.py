@@ -66,6 +66,7 @@ def where_dat_ball(rgbimg):
         com = nd.measurements.center_of_mass(region_mask)
         object_size = np.sum(region_mask)
         if object_size > largest_mask_size:
+            largest_mask_size = object_size
             best_com = com
             best_size = object_size
             best_avg_ratio = np.mean(ratioimg[region_mask])
@@ -114,6 +115,9 @@ def go():
     phase = 'turn' #starting phase should be seek when done
     counter = 0
     LOG = False
+    CLAW_ANGLE = 5 # use this constant for the angle needed to be centered
+    CLAW_DISTANCE = 280 # use this constant for the COM[0] value needed to be close enough
+    MID_X = 176 # middle of camera X value
     if LOG:
         log_init()
     #camera = camera_setup()
@@ -125,13 +129,14 @@ def go():
     good_angle = False
     
     
+    #use power adjustment for turning to center
+    #use time adjustment for movement forward
+    power_high = 1.00 
+    power_low = 0.40
+    time_high = 1.00
+    time_low = 0.40
     
-    power_high = 0.80
-    power_low = 0.30
-    time_high = 0.80
-    time_low = 0.30
-    
-    power_percent = 0.65 # this doesn't change (yet)
+    power_percent = power_high # start high (original code used 100% duty PWM for turning)
     time_percent = time_low # start small
     
     while True:
@@ -163,25 +168,31 @@ def go():
         old_x = center_of_mass[1]
         
         #calculate changing amount of time/power
-        if( angle > 8 or angle < -8):
+        if( abs(angle) > CLAW_ANGLE ):
             #we're trying to fix angle
             if (good_angle == True):
-                time_percent = time_low # the angle is now bad, so reset the percents
+                # the angle is now bad, so reset the percents
+                time_percent = time_low 
+                power_percent = power_high
                 good_angle = False
-            if (abs(da) < (abs(angle)-5)):
-                time_percent += 5
+            if (abs(dx) > abs(center_of_mass[1]-MID_X)):
+                power_percent -= 0.25
             else:
-                time_percent -= 5
+                if (abs(dx) < abs(center_of_mass[1]-MID_X)*0.9):
+                    power_percent += 0.125
         else:
             #we're trying to fix distance
             if(good_angle == False): 
-                time_percent = time_low #the angle is now good, so reset the percents
+                # the angle is now good, so reset the percents
+                time_percent = time_low
+                power_percent = power_high
                 good_angle = True
-            if (abs(dy) < abs(center_of_mass[0] - 270)):
-                time_percent += 5
+            if (abs(dy) < abs(center_of_mass[0] - CLAW_DISTANCE*0.9)):
+                time_percent += 0.20
             else:
-                time_percent -= 5
-        #percents should always be between 0 and 100, and within the HIGH and LOW constants set above
+                if (abs(dy) > abs(center_of_mass[0] - CLAW_DISTANCE)):
+                    time_percent -= 0.20
+        #percents should always be between 0 and 1, and within the HIGH and LOW constants set above
         power_percent = min(max(power_percent, power_low), power_high)
         time_percent = min(max(time_percent, time_low), time_high)
         
@@ -191,6 +202,7 @@ def go():
         if(ballWasFound == True and size == 0):
             #we lost the ball after moving. Assume we moved too far forward.
             ballWasFound = False
+            time_percent = time_low
             robot.timed_backward(.06,55)
             orig = get_picture()
             center_of_mass, size, ratio, notorig = where_dat_ball(orig)
@@ -228,7 +240,7 @@ def go():
                 continue
             
             ballWasFound = True
-            if angle > -8 and angle < 8:
+            if abs(angle) < CLAW_ANGLE:
                 
                 # phase = 'move'
                 robot.arm_init()
@@ -236,7 +248,7 @@ def go():
                 print (s)
                 log += s
                 
-                if center_of_mass[0] > 275:
+                if center_of_mass[0] > CLAW_DISTANCE:
                     robot.pickup()
                     #robot.spinfortime(.6,25,True)
                     #robot.timed_forward(.3, 45)
@@ -253,7 +265,7 @@ def go():
                 print('Turning: ')
                 print('  Turn Angle:' + str(angle))
                 print('  Turn Time: ' + str(turn_time))
-                robot.spinfortime(turn_time,100,turn_left)
+                robot.spinfortime(turn_time,100*power_percent,turn_left)
         if LOG:
             log += 'End Phase: ' + str(phase)  
             #if counter % 2 != 0:
