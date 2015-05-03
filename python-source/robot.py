@@ -3,8 +3,8 @@
 #    Autonomous Object Finding Robot
 #    Ian Yanga - CPE
 #    Justin Swinney - CPE
-#    Ashim Ghimire
-#    Matthew Parker
+#    Ashim Ghimire - CPE
+#    Matthew Parker - CPE
 #########################################
 
 #########################################

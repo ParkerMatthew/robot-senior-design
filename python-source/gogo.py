@@ -22,6 +22,7 @@ DIRECTORY = r'/root'
 
 def get_picture():
     #takes a single picture that should be up to date
+    time.sleep(0.75) # maybe the camera is taking blurry pictures
     os.system('python /root/takepic.py')
     pic = cv2.imread('/root/temp.png')
     return pic
@@ -37,7 +38,7 @@ def show_picture():
 def get_picture_self(capture):
     #read from the camera contuously, will have 2 second lag
     while True:
-        ret,frame = camera.read()
+        ret,frame = capture.read()
         if ret == False:
             print('retrying camera read')
             time.sleep(2)
@@ -100,27 +101,26 @@ def log_init():
                 break
 
         picnum = 0
-
-def camera_setup():
-    cam = cv2.VideoCapture(0)
-    cam.set(3,352)
-    cam.set(4,288)
-    #capture = cv.CaptureFromCAM(
-    cam.set(12, 0.5)
-    return cam
     
 def go():
     #This is the main function
-    ballWasFound = False #Used to check if the last movement caused the ball to be lost
-    phase = 'turn' #starting phase should be seek when done
-    counter = 0
+    #
+    # Constants - change these if you need to
+    #
     LOG = False
     CLAW_ANGLE = 5 # use this constant for the angle needed to be centered
-    CLAW_DISTANCE = 280 # use this constant for the COM[0] value needed to be close enough
+    CLAW_DISTANCE = 280 # use this constant for the center_of_mass[0] value needed to be close enough
     MID_X = 176 # middle of camera X value
+    ##
+    ##
+    
+    ball_was_found = False #Used to check if the last movement caused the ball to be lost
+    camera_is_reading = False # used to know if camera is already reading
+    phase = 'turn' #starting phase should be seek when done
+    counter = 0
+    
     if LOG:
         log_init()
-    #camera = camera_setup()
     
     #Experimental variables:
     old_x = -999 # not used when doing angle instead of X coordinate
@@ -146,13 +146,21 @@ def go():
         log += 'Start Phase: ' + str(phase) + '\n'
         
         if phase == 'seek':
+            if(camera_is_reading == False):
+                camera_is_reading = True
+                camera = cv2.VideoCapture(0)
+                camera.set(3,352)
+                camera.set(4,288)
+                camera.set(12, 0.5)
             orig = get_picture_self(camera) # read from camera for real time with 2 second lag
         else:
-            orig = get_picture()  # get 1 picture for up to date images  
+            if (camera_is_reading == True):
+                camera_is_reading = False
+                camera.release()
+            orig = get_picture()  # get 1 picture for up to date images
         
         center_of_mass, size, ratio, notorig = where_dat_ball(orig)
         angle = get_angle_from_com(center_of_mass)
-        
         
         if(old_x == -999 or old_y == -999 or old_angle == -999):
             #this should only happen once
@@ -199,9 +207,9 @@ def go():
         print "dx = ", dx, ", dy = ", dy, ", da = ", da
         print "pp = ", power_percent, ", tp = ", time_percent
         
-        if(ballWasFound == True and size == 0):
+        if(ball_was_found == True and size == 0):
             #we lost the ball after moving. Assume we moved too far forward.
-            ballWasFound = False
+            ball_was_found = False
             time_percent = time_low
             robot.timed_backward(.06,55)
             orig = get_picture()
@@ -214,13 +222,23 @@ def go():
         log += 'size = ' + str(size) + '\n'
         log += 'ratio = ' + str(ratio) + '\n'
         
-        
+        if(size > 250 ):
+            print "SOMETHING WENT WRONG"
+            print "The size is too big. Angle is probably big too."
+            print "Exiting to stop out of control robot"
+            robot.stop_all()
+            if(camera_is_reading):
+                camera.release()
+                camera.delete()
+                cv2.deleteAllWindows()
+            exit()
         
         # Do the appropriate action based on what phase we are in
         if phase == 'seek':
             if size == 0:
-                print('Did not Detect Ball. Spin: ' + str(time.time()-t0) + ' seconds.')
+                print('Did not Detect Ball. Spinning right' )
                 log += 'Did not find ball, turning right.\n'
+                robot.spin_right(50)
             else:
                 phase = 'turn'
                 robot.stop()
@@ -232,14 +250,14 @@ def go():
         
         if phase == 'turn':
             if size == 0:
-                ballWasFound = False
+                ball_was_found = False
                 phase = 'seek'
                 s = 'Ball Lost, Seeking'
                 log += s
                 print(s)
                 continue
             
-            ballWasFound = True
+            ball_was_found = True
             if abs(angle) < CLAW_ANGLE:
                 
                 # phase = 'move'
@@ -255,7 +273,7 @@ def go():
                     robot.dropoff()
                     robot.arm_init()
                     #Done:
-                    cv.destroyAllWindows()
+                    cv2.destroyAllWindows()
                     exit()
                 else:
                     robot.timed_forward(time_percent*0.10,power_percent*100)
