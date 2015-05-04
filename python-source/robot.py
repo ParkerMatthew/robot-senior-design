@@ -112,8 +112,8 @@ def arm_up():
     PWM.start(arm, 92, 50, 1) # not as high as it can go
     return None
 
-def arm_init():
-    PWM.start(arm, 88, 50, 1) # not as high as it can go
+def arm_highest():
+    PWM.start(arm, 88, 50, 1) # as high as it can go
     return None
     
 def arm_down():
@@ -161,7 +161,7 @@ def pickup():
     time.sleep(2)
     return None
     
-def dropoff():
+def release():
     # release
     arm_down()
     time.sleep(0.5)
