@@ -22,8 +22,8 @@ import cv2
 
 right = "P8_13"
 left = "P8_19"
-claw = "P9_16"
-arm = "P9_14"
+claw = "P9_42"
+arm = "P9_16"
 
 # Enable PWM ports for DC motors
 PWM.start(right, 0)

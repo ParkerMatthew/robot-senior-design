@@ -145,7 +145,7 @@ def go():
     time_high = 1.00
     time_low = 0.40
     
-    power_percent = power_high # start high (original code used 100% duty PWM for turning)
+    power_percent = 0.75 # start high (original code used 100% duty PWM for turning)
     time_percent = time_low # start small
     
     
@@ -215,29 +215,33 @@ def go():
         
         print "dx = ", dx, ", dy = ", dy, ", da = ", da
         print "pp = ", power_percent, ", tp = ", time_percent
+        print('CenterOfMass = '+ str(center_of_mass) + '\n')
+        print "angle = ",angle
+        print('Size = ' + str(size) + '\n')
+        log += 'center_of_mass = %.2f , %.2f'%(center_of_mass[0],center_of_mass[1]) + '\n'
+        log += 'size = ' + str(size) + '\n'
         
         if(ball_was_found == True and size == 0):
             #we lost the ball after moving.
             ball_was_found = False
             if(last_phase == 'seek'):
                 #Assume went too far right (or left)
-                turn_time = np.float32(estimate_turn_time(90)) # Assume angle is somewhere to the left
-                robot.spinfortime(turn_time,80, 1)
+                print "Size is 0 after ball was found. Assuming that we turned too far"
+                turn_time = 0.5 # Assume angle is somewhere to the left
                 seek_direction = not seek_direction
+                robot.spinfortime(turn_time,70, seek_direction)
+                
             elif (last_phase == 'turn'):
                 #Assume we moved too far forward.
                 time_percent = time_low
-                robot.timed_backward(.09,65)
+                print "Size is 0 after ball was found, assuming that we went too far forward"
+                show_picture() #!! DEBUG ONLY
+                robot.timed_backward(.09*time_percent,65)
                 orig = get_picture()
                 center_of_mass, size, ratio, notorig = where_dat_ball(orig)   
         last_phase = phase
         
-        print('CenterOfMass = '+ str(center_of_mass) + '\n')
-        print "angle = ",angle
-        print('Size = ' + str(size) + '\n')
-        log += 'center_of_mass = %.2f , %.2f'%(center_of_mass[0],center_of_mass[1]) + '\n'
-        log += 'size = ' + str(size) + '\n'
-        log += 'ratio = ' + str(ratio) + '\n'
+        
         
         if(size > 800):
             print "SOMETHING WENT WRONG"
@@ -247,7 +251,7 @@ def go():
             if(camera_is_reading):
                 camera_is_reading = False
                 camera.release()
-            show_picture()
+            show_picture() #!! DEBUG ONLY
             #exit()
         
         # Do the appropriate action based on what phase we are in
