@@ -114,7 +114,7 @@ def camera_setup():
     cam = cv2.VideoCapture(0)
     cam.set(3,352)
     cam.set(4,288)
-    cam.set(12, 0.170) #saturation, default is 0.125
+    cam.set(12, 0.190) #saturation, default is 0.125
     return cam
     
 def go():
