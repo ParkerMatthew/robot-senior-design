@@ -32,7 +32,7 @@ def show_picture():
     imgFile = cv2.imread('temp.png')
     cv2.imshow('angle less than 10', imgFile)
     cv2.waitKey(0)
-    #cv2.destroyAllWindows()
+    cv2.destroyAllWindows()
     return None
 
 def get_picture_self(capture):
@@ -116,7 +116,7 @@ def go():
     #
     LOG = False
     CLAW_ANGLE = 5 # use this constant for the angle needed to be centered
-    CLAW_DISTANCE = 277 # use this constant for the center_of_mass[0] value needed to be close enough
+    CLAW_DISTANCE = 270 # use this constant for the center_of_mass[0] value needed to be close enough
     MID_X = 176 # middle of camera X value
     ##
     ##
@@ -237,16 +237,16 @@ def go():
         log += 'size = ' + str(size) + '\n'
         log += 'ratio = ' + str(ratio) + '\n'
         
-        if(size > 500):
+        if(size > 800):
             print "SOMETHING WENT WRONG"
             print "The size is too big. Angle is probably big too."
-            print "Exiting to stop out of control robot"
+            #print "Exiting to stop out of control robot"
             robot.stop()
             if(camera_is_reading):
+                camera_is_reading = False
                 camera.release()
             show_picture()
-            cv2.deleteAllWindows()
-            exit()
+            #exit()
         
         # Do the appropriate action based on what phase we are in
         if phase == 'seek':
