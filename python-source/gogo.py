@@ -4,8 +4,15 @@ save a copy as C:\Users\schoo\Documents\GitHub\robot-senior-design\python-source
 
 C:\Users\Matthew\Documents\GitHub\robot-senior-design\python-source\gogo.py
 """
-
+#
+# Constants - change these if you need to
+#
 LOG = False
+CLAW_ANGLE = 5 # use this constant for the angle needed to be centered
+CLAW_DISTANCE = 270 # use this constant for the center_of_mass[0] value needed to be close enough
+MID_X = 177 # middle of camera X value - the robot seems to prefer the left
+##
+##
 
 # <InstanceID> + log + <number>
 import os
@@ -22,7 +29,7 @@ DIRECTORY = r'/root'
 
 def get_picture():
     #takes a single picture that should be up to date
-    time.sleep(0.1) # maybe the camera is taking blurry pictures
+    time.sleep(0.75) # maybe the camera is taking blurry pictures
     os.system('python /root/takepic.py')
     pic = cv2.imread('/root/temp.png')
     return pic
@@ -77,7 +84,8 @@ def rotate_to_find_ball():
     noop = 0
 
 def get_angle_from_com(com):
-    return np.rad2deg(np.arctan((com[1]-189.32)/(400-com[0])))
+    #return np.rad2deg(np.arctan((com[1]-189.32)/(400-com[0])))
+    return np.rad2deg(np.arctan((com[1] - MID_X)/(400-com[0])))
 
 def estimate_turn_time(angle):
     angle = np.float32(np.abs(angle))
@@ -111,20 +119,13 @@ def camera_setup():
     
 def go():
     #This is the main function
-    #
-    # Constants - change these if you need to
-    #
-    LOG = False
-    CLAW_ANGLE = 5 # use this constant for the angle needed to be centered
-    CLAW_DISTANCE = 270 # use this constant for the center_of_mass[0] value needed to be close enough
-    MID_X = 176 # middle of camera X value
-    ##
-    ##
+    
     
     ball_was_found = False #Used to check if the last movement caused the ball to be lost
     camera_is_reading = False # used to know if camera is already reading
     phase = 'turn' #starting phase should be seek when done
     last_phase = phase
+    seek_direction = 0 # 0 for right, 1 for left. Will alternate
     counter = 0
     
     if LOG:
@@ -219,9 +220,10 @@ def go():
             #we lost the ball after moving.
             ball_was_found = False
             if(last_phase == 'seek'):
-                #Assume went too far right
-                turn_time = np.float32(estimate_turn_time(40)) # Assume angle is somewhere to the left
+                #Assume went too far right (or left)
+                turn_time = np.float32(estimate_turn_time(90)) # Assume angle is somewhere to the left
                 robot.spinfortime(turn_time,80, 1)
+                seek_direction = not seek_direction
             elif (last_phase == 'turn'):
                 #Assume we moved too far forward.
                 time_percent = time_low
@@ -251,9 +253,10 @@ def go():
         # Do the appropriate action based on what phase we are in
         if phase == 'seek':
             if size == 0:
-                print('Did not Detect Ball. Spinning right' )
-                log += 'Did not find ball, turning right.\n'
-                robot.spin_right(50)
+                print('Did not Detect Ball. Spinning' )
+                print "seek_direction = ", seek_direction
+                log += 'Did not find ball, spinning.\n'
+                robot.spin(50, seek_direction)
             else:
                 phase = 'turn'
                 robot.stop()

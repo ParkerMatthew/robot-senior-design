@@ -22,8 +22,8 @@ import cv2
 
 right = "P8_13"
 left = "P8_19"
-claw = "P9_42"
-arm = "P9_16"
+claw = "P9_16"
+arm = "P9_14"
 
 # Enable PWM ports for DC motors
 PWM.start(right, 0)
@@ -198,6 +198,13 @@ def spin_left(duty):
     GPIO.output("P8_15", GPIO.HIGH)
     GPIO.output("P8_16", GPIO.HIGH)
     GPIO.output("P8_17", GPIO.LOW)
+    return None
+    
+def spin(duty, left):
+    if(left):
+        spin_left(duty)
+    else:
+        spin_right(duty)
     return None
 
 def spinfortime(t, duty, left):
