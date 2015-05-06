@@ -8,8 +8,10 @@ C:\Users\Matthew\Documents\GitHub\robot-senior-design\python-source\gogo.py
 # Constants - change these if you need to
 #
 LOG = False
-CLAW_ANGLE = 5 # use this constant for the angle needed to be centered
+CLAW_ANGLE = 7 # use this constant for the angle needed to be centered
 CLAW_DISTANCE = 270 # use this constant for the center_of_mass[0] value needed to be close enough
+BOX_DISTANCE = 200
+BOX_ANGLE = 20
 MID_X = 190 # middle of camera X value - the robot seems to prefer the left
 ##
 ##
@@ -54,18 +56,16 @@ def get_picture_self(capture):
     pic = np.array(frame)
     return pic
 
-def where_dat_ball(rgbimg):
+def find_color(rgbimg, color):
     mypic = copy.deepcopy(rgbimg)
-    #[:,:,0] blue.  
-    ratioimg = np.float32(rgbimg[:,:,0])/(np.float32(rgbimg[:,:,1])+np.float32(rgbimg[:,:,2]))
-    
+    #[:,:,0] blue.  [:,:,1] green.  [:,:,2] red.
+    if(color == "red"):
+        ratioimg = np.float32(rgbimg[:,:,2])/(np.float32(rgbimg[:,:,1])+np.float32(rgbimg[:,:,0]))
+    elif (color == "green"):
+        ratioimg = np.float32(rgbimg[:,:,1])/(np.float32(rgbimg[:,:,2])+np.float32(rgbimg[:,:,0]))
+    elif (color == "blue" or True):
+        ratioimg = np.float32(rgbimg[:,:,0])/(np.float32(rgbimg[:,:,1])+np.float32(rgbimg[:,:,2]))
     mymask = ratioimg>1.0
-    
-   # ''''
-    
-    
-    
-   # ''''
     opened = nd.morphology.binary_opening(mymask,iterations=5)    
     [labels,num_labels] = nd.label(opened)
     largest_mask_size = 0 
@@ -82,7 +82,7 @@ def where_dat_ball(rgbimg):
             best_size = object_size
             best_avg_ratio = np.mean(ratioimg[region_mask])
     return best_com, best_size, best_avg_ratio, mymask
-
+    
 def rotate_to_find_ball():
     noop = 0
 
@@ -120,11 +120,16 @@ def camera_setup():
     cam.set(12, 0.190) #saturation, default is 0.125
     return cam
     
+def check_if_holding():
+    #ToDo: actually check using camera
+    return True
+
 def go():
     #This is the main function
     
     
     ball_was_found = False #Used to check if the last movement caused the ball to be lost
+    ball_is_held = False
     camera_is_reading = False # used to know if camera is already reading
     phase = 'turn' #starting phase should be seek when done
     last_phase = phase
@@ -171,7 +176,11 @@ def go():
                 camera.release()
             orig = get_picture()  # get 1 picture for up to date images
         
-        center_of_mass, size, ratio, notorig = where_dat_ball(orig)
+        if(ball_is_held):
+            color = "red"
+        else:
+            color = "blue"
+        center_of_mass, size, ratio, notorig = find_color(orig, color)
         angle = get_angle_from_com(center_of_mass)
         
         if(old_x == -999 or old_y == -999 or old_angle == -999):
@@ -188,7 +197,7 @@ def go():
         old_x = center_of_mass[1]
         
         #calculate changing amount of time/power
-        if( abs(angle) > CLAW_ANGLE ):
+        if ((ball_is_held == False) and ( abs(angle) > CLAW_ANGLE )) or ((ball_is_held == True) and ( abs(angle) > BOX_ANGLE )):
             #we're trying to fix angle
             if (good_angle == True):
                 # the angle is now bad, so reset the percents
@@ -207,11 +216,16 @@ def go():
                 time_percent = time_low
                 power_percent = power_high
                 good_angle = True
-            if (abs(dy) < abs(center_of_mass[0] - CLAW_DISTANCE)*0.8):
+            if ((ball_is_held == False) and (abs(dy) < abs(center_of_mass[0] - CLAW_DISTANCE)*0.8)) or ((ball_is_held == True) and (abs(dy) < abs(center_of_mass[0] - BOX_DISTANCE)*0.8)):
                 time_percent += 0.30
             else:
-                if (abs(dy) > abs(center_of_mass[0] - CLAW_DISTANCE)):
-                    time_percent -= 0.20
+                if ball_is_held == False:
+                    if abs(dy) > abs(center_of_mass[0] - CLAW_DISTANCE):
+                        time_percent -= 0.20
+                if ball_is_held == True:
+                    if abs(dy) > abs(center_of_mass[0] - BOX_DISTANCE):
+                        time_percent -= 0.20
+                        
         #percents should always be between 0 and 1, and within the HIGH and LOW constants set above
         power_percent = min(max(power_percent, power_low), power_high)
         time_percent = min(max(time_percent, time_low), time_high)
@@ -224,7 +238,8 @@ def go():
         log += 'center_of_mass = %.2f , %.2f'%(center_of_mass[0],center_of_mass[1]) + '\n'
         log += 'size = ' + str(size) + '\n'
         
-        if(ball_was_found == True and size == 0):
+        
+        if(ball_was_found == True and size == 0 and ball_is_held == False):
             #we lost the ball after moving.
             ball_was_found = False
             if(last_phase == 'seek'):
@@ -241,21 +256,8 @@ def go():
                 #show_picture() #!! DEBUG ONLY
                 robot.timed_backward(.09*time_percent,65)
                 orig = get_picture()
-                center_of_mass, size, ratio, notorig = where_dat_ball(orig)   
+                center_of_mass, size, ratio, notorig = find_color(orig, color)   
         last_phase = phase
-        
-        
-        
-        if(size > 800):
-            print "SOMETHING WENT WRONG"
-            print "The size is too big. Angle is probably big too."
-            #print "Exiting to stop out of control robot"
-            robot.stop()
-            if(camera_is_reading):
-                camera_is_reading = False
-                camera.release()
-            #show_picture() #!! DEBUG ONLY
-            #exit()
         
         # Do the appropriate action based on what phase we are in
         if phase == 'seek':
@@ -285,7 +287,7 @@ def go():
                 continue
             
             ball_was_found = True
-            if abs(angle) < CLAW_ANGLE:
+            if abs(angle) < CLAW_ANGLE or ((ball_is_held == True) and abs(angle) < BOX_ANGLE):
                 
                 # phase = 'move'
                 robot.arm_highest()
@@ -293,19 +295,26 @@ def go():
                 print (s)
                 log += s
                 
-                if center_of_mass[0] > CLAW_DISTANCE:
-                    robot.pickup()
-                    robot.spinfortime(.6,25,True)
+                if center_of_mass[0] > CLAW_DISTANCE or ((ball_is_held == True) and (center_of_mass[0] > BOX_DISTANCE)):
+                    if(ball_is_held == False):
+                        robot.pickup()
+                        ball_is_held = check_if_holding()
+                        robot.arm_highest()
+                    #robot.spinfortime(.6,25,True)
                     #robot.timed_forward(.3, 45)
-                    robot.release()
-                    robot.arm_highest()
+                    if(ball_is_held == True):
+                        robot.release()
+                        ball_is_held = False
                     #Done:
-                    cv2.destroyAllWindows()
-                    print "\n\nJob Complete. Sleeping for 10 seconds. Press Ctrl+Z to quit.\n"
-                    time.sleep(10)
+                        cv2.destroyAllWindows()
+                        print "\n\nJob Complete. Sleeping for 10 seconds. Press Ctrl+Z to quit.\n"
+                        time.sleep(10)
                    # exit()
                 else:
-                    robot.timed_forward(time_percent*0.10,power_percent*100)
+                    if(ball_is_held):
+                        robot.timed_forward(time_percent*0.20,power_percent*100)
+                    else:
+                        robot.timed_forward(time_percent*0.10,power_percent*100)
             else:
                 turn_left = angle<0
                 turn_time = np.float32(estimate_turn_time(angle))
