@@ -42,7 +42,7 @@ GPIO.setup("P8_17", GPIO.OUT)
 
 def claw_in_motion():
     PWM.start(arm, 93, 50, 1)    # arm stabilizes to middle point, 180 degrees
-    PWM.start(claw, 88, 50, 1)    # open claw all the way
+    PWM.start(claw, 89, 50, 1)    # open claw all the way
     return None
 
 
@@ -133,7 +133,7 @@ def claw_close():
     return None
     
 def claw_tightest():
-    PWM.start(claw, 99, 50, 1) # 96 is a little tighter than 95
+    PWM.start(claw, 97.5, 50, 1) # 96 is a little tighter than 95
     return None
 
 # Use this function to try to prevent the claw from getting too hot. 

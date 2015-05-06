@@ -10,7 +10,7 @@ C:\Users\Matthew\Documents\GitHub\robot-senior-design\python-source\gogo.py
 LOG = False
 CLAW_ANGLE = 5 # use this constant for the angle needed to be centered
 CLAW_DISTANCE = 270 # use this constant for the center_of_mass[0] value needed to be close enough
-MID_X = 177 # middle of camera X value - the robot seems to prefer the left
+MID_X = 190 # middle of camera X value - the robot seems to prefer the left
 ##
 ##
 
@@ -29,7 +29,7 @@ DIRECTORY = r'/root'
 
 def get_picture():
     #takes a single picture that should be up to date
-    time.sleep(0.75) # maybe the camera is taking blurry pictures
+    time.sleep(0.5) # maybe the camera is taking blurry pictures
     os.system('python /root/takepic.py')
     pic = cv2.imread('/root/temp.png')
     return pic
@@ -54,15 +54,18 @@ def get_picture_self(capture):
     pic = np.array(frame)
     return pic
 
-def rgb2gray(rgb):
-    r, g, b = rgb[:,:,0], rgb[:,:,1], rgb[:,:,2]
-    gray = 0.2989 * r + 0.5870 * g + 0.1140 * b
-    return gray
-
 def where_dat_ball(rgbimg):
     mypic = copy.deepcopy(rgbimg)
+    #[:,:,0] blue.  
     ratioimg = np.float32(rgbimg[:,:,0])/(np.float32(rgbimg[:,:,1])+np.float32(rgbimg[:,:,2]))
+    
     mymask = ratioimg>1.0
+    
+   # ''''
+    
+    
+    
+   # ''''
     opened = nd.morphology.binary_opening(mymask,iterations=5)    
     [labels,num_labels] = nd.label(opened)
     largest_mask_size = 0 
@@ -227,7 +230,7 @@ def go():
             if(last_phase == 'seek'):
                 #Assume went too far right (or left)
                 print "Size is 0 after ball was found. Assuming that we turned too far"
-                turn_time = 0.5 # Assume angle is somewhere to the left
+                turn_time = 1.0 # Assume angle is somewhere to the left/right
                 seek_direction = not seek_direction
                 robot.spinfortime(turn_time,70, seek_direction)
                 
@@ -235,7 +238,7 @@ def go():
                 #Assume we moved too far forward.
                 time_percent = time_low
                 print "Size is 0 after ball was found, assuming that we went too far forward"
-                show_picture() #!! DEBUG ONLY
+                #show_picture() #!! DEBUG ONLY
                 robot.timed_backward(.09*time_percent,65)
                 orig = get_picture()
                 center_of_mass, size, ratio, notorig = where_dat_ball(orig)   
@@ -251,7 +254,7 @@ def go():
             if(camera_is_reading):
                 camera_is_reading = False
                 camera.release()
-            show_picture() #!! DEBUG ONLY
+            #show_picture() #!! DEBUG ONLY
             #exit()
         
         # Do the appropriate action based on what phase we are in
@@ -261,6 +264,8 @@ def go():
                 print "seek_direction = ", seek_direction
                 log += 'Did not find ball, spinning.\n'
                 robot.spin(50, seek_direction)
+                #robot.spinfortime(2.5,50,seek_direction)
+                #time.sleep(0.25)
             else:
                 phase = 'turn'
                 robot.stop()
@@ -290,13 +295,15 @@ def go():
                 
                 if center_of_mass[0] > CLAW_DISTANCE:
                     robot.pickup()
-                    #robot.spinfortime(.6,25,True)
+                    robot.spinfortime(.6,25,True)
                     #robot.timed_forward(.3, 45)
                     robot.release()
                     robot.arm_highest()
                     #Done:
                     cv2.destroyAllWindows()
-                    exit()
+                    print "\n\nJob Complete. Sleeping for 10 seconds. Press Ctrl+Z to quit.\n"
+                    time.sleep(10)
+                   # exit()
                 else:
                     robot.timed_forward(time_percent*0.10,power_percent*100)
             else:
