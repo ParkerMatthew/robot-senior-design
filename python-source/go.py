@@ -11,12 +11,12 @@ C:\Users\Matthew\Documents\GitHub\robot-senior-design\python-source\
 # Constants - change these if you need to
 #
 LOG = False
-CLAW_ANGLE = 7 # use this constant for the angle needed to be centered
-CLAW_DISTANCE = 270 # use this constant for the center_of_mass[0] value needed to be close enough
-BOX_DISTANCE = 200
-BOX_ANGLE = 20
+CLAW_ANGLE = 5.6 # use this constant for the angle needed to be centered
+CLAW_DISTANCE = 250 # use this constant for the center_of_mass[0] value needed to be close enough
+BOX_DISTANCE = 258
+BOX_ANGLE = 10
 MID_X = 190 # middle of claw X value
-POWER = 0.77 # percent of battery. increase when low battery.
+POWER = 0.745 # percent of battery. increase when low battery.
 ##
 ##
 
@@ -36,9 +36,11 @@ DIRECTORY = r'/root'
 def get_picture():
     #takes a single picture that should be up to date
     robot.stop()
-    time.sleep(0.75) # maybe the camera is taking blurry pictures
+    time.sleep(0.60) # maybe the camera is taking blurry pictures
     os.system('python /root/takepic.py')
+    time.sleep(0.60)
     pic = cv2.imread('/root/temp.png')
+    time.sleep(0.60)
     return pic
     
 def show_picture():
@@ -92,7 +94,6 @@ def rotate_to_find_ball():
     noop = 0
 
 def get_angle_from_com(com):
-    #return np.rad2deg(np.arctan((com[1]-189.32)/(400-com[0])))
     return np.rad2deg(np.arctan((com[1] - MID_X)/(400-com[0])))
 
 def estimate_turn_time(angle):
@@ -134,6 +135,7 @@ def go():
     
     
     ball_was_found = False #Used to check if the last movement caused the ball to be lost
+    box_was_found = False
     ball_is_held = False
     camera_is_reading = False # used to know if camera is already reading
     phase = 'turn' #starting phase should be seek when done
@@ -244,22 +246,23 @@ def go():
         log += 'size = ' + str(size) + '\n'
         
         
-        if(ball_was_found == True and size == 0 and ball_is_held == False):
+        if((box_was_found == True or ball_was_found == True) and size == 0):
             #we lost the ball after moving.
             ball_was_found = False
+            box_was_found = False
             if(last_phase == 'seek'):
                 #Assume went too far right (or left)
                 print "Size is 0 after ball was found. Assuming that we turned too far"
                 turn_time = 1.0 # Assume angle is somewhere to the left/right
                 seek_direction = not seek_direction
-                robot.spinfortime(turn_time,70*POWER, seek_direction)
+                robot.spinfortime(turn_time,75*POWER, seek_direction)
                 
             elif (last_phase == 'turn'):
                 #Assume we moved too far forward.
                 time_percent = time_low
                 print "Size is 0 after ball was found, assuming that we went too far forward"
                 #show_picture() #!! DEBUG ONLY
-                robot.timed_backward(.09*time_percent,65*POWER)
+                robot.timed_backward(.14*time_percent,65*POWER)
                 orig = get_picture()
                 center_of_mass, size, ratio, notorig = find_color(orig, color)   
         last_phase = phase
@@ -270,7 +273,7 @@ def go():
                 print('Did not Detect Ball. Spinning' )
                 print "seek_direction = ", seek_direction
                 log += 'Did not find ball, spinning.\n'
-                robot.spin(50*POWER, seek_direction)
+                robot.spin(30*POWER, seek_direction)
             else:
                 phase = 'turn'
                 robot.stop()
@@ -283,16 +286,15 @@ def go():
         if phase == 'turn':
             if size == 0:
                 ball_was_found = False
+                box_was_found = False
                 phase = 'seek'
                 s = 'Ball Lost, Seeking'
                 log += s
                 print(s)
-                continue
-            
-            ball_was_found = True
+            else:
+                ball_was_found = True
+                box_was_found = True
             if abs(angle) < CLAW_ANGLE or ((ball_is_held == True) and abs(angle) < BOX_ANGLE):
-                
-                # phase = 'move'
                 robot.arm_highest()
                 s = 'Angle Good. Going to Move Phase'           
                 print (s)
@@ -302,9 +304,8 @@ def go():
                     if(ball_is_held == False):
                         robot.pickup()
                         ball_is_held = check_if_holding()
+                        ball_was_found = False
                         robot.arm_highest()
-                    #robot.spinfortime(.6,25,True)
-                    #robot.timed_forward(.3, 45)
                     else:
                         robot.release()
                         ball_is_held = False
@@ -315,7 +316,7 @@ def go():
                    # exit()
                 else:
                     if(ball_is_held):
-                        robot.timed_forward(time_percent*0.20,power_percent*100*POWER)
+                        robot.timed_forward(time_percent*0.14,power_percent*100*POWER)
                     else:
                         robot.timed_forward(time_percent*0.10,power_percent*100*POWER)
             else:
@@ -324,7 +325,7 @@ def go():
                 print('Turning: ')
                 print('  Turn Angle:' + str(angle))
                 print('  Turn Time: ' + str(turn_time))
-                robot.spinfortime(turn_time,100*power_percent*POWER,turn_left)
+                robot.spinfortime(turn_time,75*power_percent*POWER,turn_left)
         if LOG:
             log += 'End Phase: ' + str(phase)  
             #if counter % 2 != 0:
