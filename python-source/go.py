@@ -1,17 +1,29 @@
-# -*- coding: utf-8 -*-
 """
-Created on Fri Apr 24 19:42:43 2015
+This program will:
+1. Find toys
+2. place toys on red box
 
-@author:
+save a copy for github!
+C:\Users\schoo\Documents\GitHub\robot-senior-design\python-source\
+C:\Users\Matthew\Documents\GitHub\robot-senior-design\python-source\
 """
-    
+#
+# Constants - change these if you need to
+#
 LOG = False
+CLAW_ANGLE = 7 # use this constant for the angle needed to be centered
+CLAW_DISTANCE = 270 # use this constant for the center_of_mass[0] value needed to be close enough
+BOX_DISTANCE = 200
+BOX_ANGLE = 20
+MID_X = 190 # middle of claw X value
+POWER = 0.77 # percent of battery. increase when low battery.
+##
+##
 
 # <InstanceID> + log + <number>
 import os
 import matplotlib.pyplot as plt
 import time
-#import PIL
 import numpy as np
 import copy
 import scipy.ndimage as nd
@@ -19,49 +31,48 @@ import cv2.cv as cv
 import robot
 import cv2
 
-#global camera
-
 DIRECTORY = r'/root'
 
 def get_picture():
+    #takes a single picture that should be up to date
+    robot.stop()
+    time.sleep(0.75) # maybe the camera is taking blurry pictures
     os.system('python /root/takepic.py')
     pic = cv2.imread('/root/temp.png')
-    temp = pic[:,:,0]
-    pic[:,:,0] = pic[:,:,2]
-    pic[:,:,2] = temp
     return pic
+    
+def show_picture():
+    #display image, requires user to press a button to continue
+    imgFile = cv2.imread('temp.png')
+    cv2.imshow('angle less than 10', imgFile)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
+    return None
 
 def get_picture_self(capture):
+    #read from the camera contuously, will have 2 second lag
     while True:
-        #camera = camera_setup()
-        ret,frame = camera.read()
+        ret,frame = capture.read()
         if ret == False:
-            print('Retrying')
+            print('retrying camera read')
             time.sleep(2)
         else:
             break
     pic = np.array(frame)
-   # temp = pic[:,:,2]
-   # pic[:,:,2] = pic[:,:,0]
-   # pic[:,:,0] = temp  
-    #camera.release()
-    #camera = camera_setup()
-    return pic    
+    return pic
 
-def rgb2gray(rgb):
-
-    r, g, b = rgb[:,:,0], rgb[:,:,1], rgb[:,:,2]
-    gray = 0.2989 * r + 0.5870 * g + 0.1140 * b
-
-    return gray
-
-def where_dat_ball(rgbimg):
+def find_color(rgbimg, color):
     mypic = copy.deepcopy(rgbimg)
-    ratioimg = np.float32(rgbimg[:,:,0])/(np.float32(rgbimg[:,:,1])+np.float32(rgbimg[:,:,2]))
-    mymask = ratioimg>1.4
+    #[:,:,0] blue.  [:,:,1] green.  [:,:,2] red.
+    if(color == "red"):
+        ratioimg = np.float32(rgbimg[:,:,2])/(np.float32(rgbimg[:,:,1])+np.float32(rgbimg[:,:,0]))
+    elif (color == "green"):
+        ratioimg = np.float32(rgbimg[:,:,1])/(np.float32(rgbimg[:,:,2])+np.float32(rgbimg[:,:,0]))
+    elif (color == "blue" or True):
+        ratioimg = np.float32(rgbimg[:,:,0])/(np.float32(rgbimg[:,:,1])+np.float32(rgbimg[:,:,2]))
+    mymask = ratioimg>1.0
     opened = nd.morphology.binary_opening(mymask,iterations=5)    
     [labels,num_labels] = nd.label(opened)
-
     largest_mask_size = 0 
     best_com = (1,1)
     best_size = 0
@@ -71,158 +82,282 @@ def where_dat_ball(rgbimg):
         com = nd.measurements.center_of_mass(region_mask)
         object_size = np.sum(region_mask)
         if object_size > largest_mask_size:
+            largest_mask_size = object_size
             best_com = com
             best_size = object_size
             best_avg_ratio = np.mean(ratioimg[region_mask])
     return best_com, best_size, best_avg_ratio, mymask
-
+    
 def rotate_to_find_ball():
     noop = 0
 
 def get_angle_from_com(com):
-    return np.rad2deg(np.arctan((com[1]-189.32)/(288.1-com[0])))
+    #return np.rad2deg(np.arctan((com[1]-189.32)/(400-com[0])))
+    return np.rad2deg(np.arctan((com[1] - MID_X)/(400-com[0])))
 
 def estimate_turn_time(angle):
     angle = np.float32(np.abs(angle))
-    turn_time = 2.73e-6*angle*angle + 7.68e-3*angle + 3.76e-2
+    #turn_time = 2.73e-6*angle*angle + 7.68e-3*angle + 3.76e-2
+    turn_time = -8.82e-6*angle*angle + 4.792e-3*angle + 2.7538e-2   
+    if turn_time>.25:
+        turn_time = .25
     return turn_time
+ 
+def log_init():
+    if LOG:
+        file_list = os.listdir(DIRECTORY)
+        instance = 0     
+        
+        while True: 
+            filename = 'Instance_' + str(instance) + '_Pic_' + '0001.png'
+            if filename in file_list:
+                instance += 1
+                continue
+            else:
+                break
 
-def flush_buffer(camera):
-    flush_init_time = time.time()
-    while(time.time()- flush_init_time) < 2.0:
-        camera.grab   
+        picnum = 0
     
-if LOG:
-    file_list = os.listdir(DIRECTORY)
-    instance = 0     
-    
-    while True: 
-        filename = 'Instance_' + str(instance) + '_Pic_' + '0001.png'
-        if filename in file_list:
-            instance += 1
-            continue
-        else:
-            break
-
-    picnum = 0
-
-phase = 'seek'
-counter = 0
-
 def camera_setup():
     cam = cv2.VideoCapture(0)
     cam.set(3,352)
     cam.set(4,288)
-    #capture = cv.CaptureFromCAM(
-    cam.set(12, 0.5)
+    cam.set(12, 0.150) #saturation, default is 0.125. 0.19 seems to work well.
     return cam
     
+def check_if_holding():
+    #ToDo: actually check using camera
+    return True
 
-camera = camera_setup()
-while True:
-    #if camera.isOpened() == False:
-    #    camera = camera_setup()
-    LOG = False
-    counter += 1
-    log = 'Second is ' + str(counter) + '\n'
-    log += 'Start Phase: ' + str(phase) + '\n'
+def go():
+    #This is the main function
     
-    # Get an Image
-    #imgtemp = r'C:\Users\Chad\Desktop\pingpong\image0006.jpg'
-    #img = PIL.Image.open(imgtemp)
-    #orig = np.asarray(img)    
-    #log += 'Loaded Image.\n'
-    t0 = time.time()
-    if True:
-        orig = get_picture_self(camera) 
-    else:
-        orig = get_picture()    
-    print('Image Capture: ' + str(time.time()-t0) + ' seconds.')    
-
-    # Compute where the ball is
-    t0 = time.time()
-    center_of_mass, size, ratio, notorig = where_dat_ball(orig)
-    print('CenterOfMass = '+ str(center_of_mass) + '\n')
-    print('Size = ' + str(size) + '\n')
-    print('Image Processing: ' + str(time.time()-t0) + ' seconds.')
-    log += 'center_of_mass = %.2f , %.2f'%(center_of_mass[0],center_of_mass[1]) + '\n'
-    log += 'size = ' + str(size) + '\n'
-    log += 'ratio = ' + str(ratio) + '\n'
-    # Do the appropriate action based on what phase we are in
-    if phase == 'seek' and size == 0:
-        print('I got out of the ball lost, seeking IF statement')
-        t0 = time.time()
-        robot.spin_right(50)
-        print('Did not Detect Ball. Spin: ' + str(time.time()-t0) + ' seconds.')
-        log += 'Did not find ball, turning right.\n'
     
-    if phase == 'seek' and size != 0:
-        phase = 'turn'
-        robot.stop()	    
-        log += 'Found Object, Centering.\n'
-        print('Found Object, Moving to Turn Phase')
-
-    if phase == 'turn':
-        LOG = False
-        if size == 0:
-            phase == 'seek'
-            s = 'Ball Lost, Seeking'
-            log += s
-            print(s)
-            continue
+    ball_was_found = False #Used to check if the last movement caused the ball to be lost
+    ball_is_held = False
+    camera_is_reading = False # used to know if camera is already reading
+    phase = 'turn' #starting phase should be seek when done
+    last_phase = phase
+    seek_direction = 0 # 0 for right, 1 for left. Will alternate
+    counter = 0
     
-        angle = get_angle_from_com(center_of_mass)
-        if angle > -15 and angle < 15:
-           # phase = 'move'
-            s = 'Angle Good. Going to Move Phase'
-            print (s)
-            log += s
-            
-        else:
-            turn_left = angle<0
-            turn_time = np.float32(estimate_turn_time(angle))
-            print('Turning: ')
-            print('  Turn Angle:' + str(angle))
-            print('  Turn Time: ' + str(turn_time))
-            robot.spinfortime(turn_time,100,turn_left)
-            flush_buffer(camera)
-    # If log mode save log
-    t0 = time.time()
     if LOG:
-        log += 'End Phase: ' + str(phase)  
-        #if counter % 2 != 0:
-        #    continue
-        picnum += 1
-        zerostring = '000'
-        if picnum > 9:
-            zerostring = '00'
-        if picnum > 99:
-            zerostring = '0'
-        if picnum > 999:
-            zerostring = ''
-        filename = 'Instance_' + str(instance) + '_Pic_' + zerostring + str(picnum) + '.png'
-        fullname = os.path.join(DIRECTORY, filename)
-        fig = plt.figure(1)
+        log_init()
+    
+    #Experimental variables:
+    old_x = -999 # not used when doing angle instead of X coordinate
+    old_y = -999
+    old_angle = -999
+    good_angle = False
+    
+    
+    #use power adjustment for turning to center
+    #use time adjustment for movement forward
+    power_high = 1.00 
+    power_low = 0.40
+    time_high = 1.00
+    time_low = 0.40
+    
+    power_percent = 0.75 # start high (original code used 100% duty PWM for turning)
+    time_percent = time_low # start small
+    
+    
+    robot.arm_highest()
+    robot.claw_open()
+    while True:
         
-        frame = plt.subplot2grid((1,2),(0,0))
-        frame.imshow(orig)
-        plt.text(center_of_mass[1], center_of_mass[0], '+', fontsize=60, color='green',verticalalignment='center', horizontalalignment='center') 
+        counter += 1
+        log = 'Second is ' + str(counter) + '\n'
+        log += 'Start Phase: ' + str(phase) + '\n'
+        
+        if phase == 'seek':
+            if(camera_is_reading == False):
+                camera_is_reading = True
+                camera = camera_setup()
+            orig = get_picture_self(camera) # read from camera for real time with 2 second lag
+        else:
+            if (camera_is_reading == True):
+                camera_is_reading = False
+                camera.release()
+            orig = get_picture()  # get 1 picture for up to date images
+        
+        if(ball_is_held):
+            color = "red"
+        else:
+            color = "blue"
+        center_of_mass, size, ratio, notorig = find_color(orig, color)
+        angle = get_angle_from_com(center_of_mass)
+        
+        if(old_x == -999 or old_y == -999 or old_angle == -999):
+            #this should only happen once
+            old_x = center_of_mass[1]
+            old_y = center_of_mass[0]
+            old_angle = angle
+        
+        #d meaning delta = change in the value
+        dx = old_x - center_of_mass[1]
+        dy = old_y - center_of_mass[0]
+        da = old_angle - angle
+        old_y = center_of_mass[0]
+        old_x = center_of_mass[1]
+        
+        #calculate changing amount of time/power
+        if ((ball_is_held == False) and ( abs(angle) > CLAW_ANGLE )) or ((ball_is_held == True) and ( abs(angle) > BOX_ANGLE )):
+            #we're trying to fix angle
+            if (good_angle == True):
+                # the angle is now bad, so reset the percents
+                time_percent = time_low 
+                power_percent = power_high
+                good_angle = False
+            if (abs(dx) > abs(center_of_mass[1]-MID_X)):
+                power_percent -= 0.20
+            else:
+                if (abs(dx) < abs(center_of_mass[1]-MID_X)*0.9):
+                    power_percent += 0.10
+        else:
+            #we're trying to fix distance
+            if(good_angle == False): 
+                # the angle is now good, so reset the percents
+                time_percent = time_low
+                power_percent = power_high
+                good_angle = True
+            if ((ball_is_held == False) and (abs(dy) < abs(center_of_mass[0] - CLAW_DISTANCE)*0.8)) or ((ball_is_held == True) and (abs(dy) < abs(center_of_mass[0] - BOX_DISTANCE)*0.8)):
+                time_percent += 0.30
+            else:
+                if ball_is_held == False:
+                    if abs(dy) > abs(center_of_mass[0] - CLAW_DISTANCE):
+                        time_percent -= 0.20
+                if ball_is_held == True:
+                    if abs(dy) > abs(center_of_mass[0] - BOX_DISTANCE):
+                        time_percent -= 0.20
+                        
+        #percents should always be between 0 and 1, and within the HIGH and LOW constants set above
+        power_percent = min(max(power_percent, power_low), power_high)
+        time_percent = min(max(time_percent, time_low), time_high)
+        
+        print "dx = ", dx, ", dy = ", dy, ", da = ", da
+        print "pp = ", power_percent, ", tp = ", time_percent
+        print('CenterOfMass = '+ str(center_of_mass) + '\n')
+        print "angle = ",angle
+        print('Size = ' + str(size) + '\n')
+        log += 'center_of_mass = %.2f , %.2f'%(center_of_mass[0],center_of_mass[1]) + '\n'
+        log += 'size = ' + str(size) + '\n'
         
         
-        frame = plt.subplot2grid((1,2),(0,1))
-        frame.text(0.1,0.9,log, transform=frame.transAxes, va='top', ha='left', fontsize=8)
-        frame.axes.get_xaxis().set_visible(False)            
-        frame.axes.get_yaxis().set_visible(False)   
-        frame.patch.set_visible(False)
-        frame.axis('off') 
-       
-        print 'Saving Log...'
-        plt.savefig(fullname)
-
-        print('Log Save Time: ' + str(time.time()-t0) + ' seconds.')
-
-# For All Time, Every Second
-    # Compute where the ball is 
-    # If Phase = 1?2?3?
-        # Do appropriate Phase STuff
-    # If log file is true, save log file
+        if(ball_was_found == True and size == 0 and ball_is_held == False):
+            #we lost the ball after moving.
+            ball_was_found = False
+            if(last_phase == 'seek'):
+                #Assume went too far right (or left)
+                print "Size is 0 after ball was found. Assuming that we turned too far"
+                turn_time = 1.0 # Assume angle is somewhere to the left/right
+                seek_direction = not seek_direction
+                robot.spinfortime(turn_time,70*POWER, seek_direction)
+                
+            elif (last_phase == 'turn'):
+                #Assume we moved too far forward.
+                time_percent = time_low
+                print "Size is 0 after ball was found, assuming that we went too far forward"
+                #show_picture() #!! DEBUG ONLY
+                robot.timed_backward(.09*time_percent,65*POWER)
+                orig = get_picture()
+                center_of_mass, size, ratio, notorig = find_color(orig, color)   
+        last_phase = phase
+        
+        # Do the appropriate action based on what phase we are in
+        if phase == 'seek':
+            if size == 0:
+                print('Did not Detect Ball. Spinning' )
+                print "seek_direction = ", seek_direction
+                log += 'Did not find ball, spinning.\n'
+                robot.spin(50*POWER, seek_direction)
+            else:
+                phase = 'turn'
+                robot.stop()
+                #camera.release()
+                #del camera
+                #time.sleep(3)	    
+                log += 'Found Object, Centering.\n'
+                print('Found Object, Moving to Turn Phase')
+        
+        if phase == 'turn':
+            if size == 0:
+                ball_was_found = False
+                phase = 'seek'
+                s = 'Ball Lost, Seeking'
+                log += s
+                print(s)
+                continue
+            
+            ball_was_found = True
+            if abs(angle) < CLAW_ANGLE or ((ball_is_held == True) and abs(angle) < BOX_ANGLE):
+                
+                # phase = 'move'
+                robot.arm_highest()
+                s = 'Angle Good. Going to Move Phase'           
+                print (s)
+                log += s
+                
+                if center_of_mass[0] > CLAW_DISTANCE or ((ball_is_held == True) and (center_of_mass[0] > BOX_DISTANCE)):
+                    if(ball_is_held == False):
+                        robot.pickup()
+                        ball_is_held = check_if_holding()
+                        robot.arm_highest()
+                    #robot.spinfortime(.6,25,True)
+                    #robot.timed_forward(.3, 45)
+                    else:
+                        robot.release()
+                        ball_is_held = False
+                    #Done:
+                        cv2.destroyAllWindows()
+                        print "\n\nJob Complete. Sleeping for 10 seconds. Press Ctrl+Z to quit.\n"
+                        time.sleep(10)
+                   # exit()
+                else:
+                    if(ball_is_held):
+                        robot.timed_forward(time_percent*0.20,power_percent*100*POWER)
+                    else:
+                        robot.timed_forward(time_percent*0.10,power_percent*100*POWER)
+            else:
+                turn_left = angle<0
+                turn_time = np.float32(estimate_turn_time(angle))
+                print('Turning: ')
+                print('  Turn Angle:' + str(angle))
+                print('  Turn Time: ' + str(turn_time))
+                robot.spinfortime(turn_time,100*power_percent*POWER,turn_left)
+        if LOG:
+            log += 'End Phase: ' + str(phase)  
+            #if counter % 2 != 0:
+            #    continue
+            picnum += 1
+            zerostring = '000'
+            if picnum > 9:
+                zerostring = '00'
+            if picnum > 99:
+                zerostring = '0'
+            if picnum > 999:
+                zerostring = ''
+            filename = 'Instance_' + str(instance) + '_Pic_' + zerostring + str(picnum) + '.png'
+            fullname = os.path.join(DIRECTORY, filename)
+            fig = plt.figure(1)
+            frame = plt.subplot2grid((1,2),(0,0))
+            frame.imshow(orig)
+            plt.text(center_of_mass[1], center_of_mass[0], '+', fontsize=60, color='green',verticalalignment='center', horizontalalignment='center') 
+            frame = plt.subplot2grid((1,2),(0,1))
+            frame.text(0.1,0.9,log, transform=frame.transAxes, va='top', ha='left', fontsize=8)
+            frame.axes.get_xaxis().set_visible(False)            
+            frame.axes.get_yaxis().set_visible(False)   
+            frame.patch.set_visible(False)
+            frame.axis('off') 
+            print 'Saving Log...'
+            plt.savefig(fullname)
+            print('Log Save Time: ' + str(time.time()-t0) + ' seconds.')
+        # End LOG
+    # end While
+    robot.stop_all()
+    cv2.destroyAllWindows()
+    return None
+    
+    
+if __name__ == '__main__':
+    go()
