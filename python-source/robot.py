@@ -117,7 +117,7 @@ def arm_highest():
     return None
     
 def arm_down():
-    PWM.start(arm, 93.75, 50, 1)
+    PWM.start(arm, 93.75, 50, 1) #Old: 93.75. changed so we can set on top of box 92.7
     return None
 
 def arm_lowest():
@@ -164,10 +164,10 @@ def pickup():
 def release():
     # release
     arm_down()
-    time.sleep(0.5)
+    time.sleep(0.75)
     claw_open()
-    time.sleep(1.0)
-    arm_up()
+    time.sleep(1.25)
+    arm_highest()
     claw_relax()
     return None
     
