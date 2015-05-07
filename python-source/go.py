@@ -16,7 +16,7 @@ CLAW_DISTANCE = 250 # use this constant for the center_of_mass[0] value needed t
 BOX_DISTANCE = 258
 BOX_ANGLE = 10
 MID_X = 190 # middle of claw X value
-POWER = 0.745 # percent of battery. increase when low battery.
+POWER = 1.00 # percent of battery. increase when low battery. use 0.75 when super charged.
 ##
 ##
 
@@ -36,11 +36,11 @@ DIRECTORY = r'/root'
 def get_picture():
     #takes a single picture that should be up to date
     robot.stop()
-    time.sleep(0.60) # maybe the camera is taking blurry pictures
+    time.sleep(0.35) # maybe the camera is taking blurry pictures
     os.system('python /root/takepic.py')
     time.sleep(0.60)
     pic = cv2.imread('/root/temp.png')
-    time.sleep(0.60)
+    time.sleep(0.35)
     return pic
     
 def show_picture():
@@ -123,7 +123,8 @@ def camera_setup():
     cam = cv2.VideoCapture(0)
     cam.set(3,352)
     cam.set(4,288)
-    cam.set(12, 0.150) #saturation, default is 0.125. 0.19 seems to work well.
+    cam.set(11,0.14) #contrast, default 0.125
+    cam.set(12, 0.14) #saturation, default is 0.125. 0.19 seems to work well.
     return cam
     
 def check_if_holding():
